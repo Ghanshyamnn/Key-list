@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Key List App</title>
+  <!-- Google Material Icons (Outlined) -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Icons+Outlined" rel="stylesheet">
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+  <style>
+    :root {
+      --primary-color: #007bff; --primary-hover: #0056b3; --danger-color: #dc3545; --danger-hover: #c82333;
+      --dark-color: #2c3e50; --light-color: #ffffff; --grey-color: #6c757d; --bg-color: #f4f7f9;
+      --border-color: #e0e0e0; --shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg-color); color: #333; }
+    .material-icons-outlined { font-size: 1.25em; vertical-align: middle; }
+    button .material-icons-outlined { margin-right: 8px; }
+    button.icon-only .material-icons-outlined { margin-right: 0; }
+    header { background-color: var(--dark-color); color: var(--light-color); padding: 15px 0; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: center; align-items: center; }
+    header h1 { margin: 0; font-size: 22px; }
+    header h1 .material-icons-outlined { font-size: 1.3em; margin-right: 10px; }
+    .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .search-container { position: relative; margin-bottom: 20px; }
+    .search-container .material-icons-outlined { position: absolute; top: 50%; left: 15px; transform: translateY(-50%); color: var(--grey-color); }
+    #searchInput { width: 100%; padding: 12px 15px 12px 50px; font-size: 16px; border: 1px solid var(--border-color); border-radius: 25px; box-sizing: border-box; }
+    .key-box { background: var(--light-color); padding: 15px 20px; border-radius: 10px; box-shadow: var(--shadow); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+    .key-name { font-weight: 600; font-size: 18px; word-break: break-all; margin-right: 10px;}
+    .key-actions button { background-color: transparent; color: var(--grey-color); border: none; padding: 8px; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; margin-left: 5px; margin-top: 5px; transition: background-color 0.2s ease, color 0.2s ease; display: inline-flex; justify-content: center; align-items: center; }
+    .key-actions button:hover { background-color: #e9ecef; color: var(--primary-color); }
+    .key-actions .delete-btn:hover { background-color: #f8d7da; color: var(--danger-color); }
+    #fab-add-key { position: fixed; bottom: 25px; right: 25px; width: 60px; height: 60px; border-radius: 50%; background-color: var(--primary-color); color: var(--light-color); border: none; box-shadow: 0 4px 10px rgba(0,0,0,0.25); cursor: pointer; z-index: 990; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s, transform 0.2s ease; }
+    #fab-add-key:hover { background-color: var(--primary-hover); transform: scale(1.05); }
+    #fab-add-key .material-icons-outlined { font-size: 36px; margin: 0; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 999; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal-content { background: var(--light-color); padding: 25px; width: 90%; max-width: 550px; border-radius: 10px; }
+    .modal-content input, .modal-content textarea { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 6px; border: 1px solid var(--border-color); font-size: 14px; box-sizing: border-box; }
+    .modal-header { display: flex; align-items: center; font-size: 20px; font-weight: 600; margin-bottom: 15px; }
+    .modal-actions button { width: 100%; margin: 5px 0; display: flex; justify-content: center; align-items: center; background-color: var(--primary-color); color: var(--light-color); border: none; padding: 12px; border-radius: 6px; cursor: pointer; }
+    .modal-actions .cancel-btn { background-color: var(--grey-color); }
+    .fullscreen-viewer { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: var(--light-color); z-index: 1000; flex-direction: column; animation: fadeIn 0.3s ease; }
+    .viewer-header { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+    .viewer-back-btn { font-size: 28px; cursor: pointer; padding: 0 15px; background: none; border: none; color: #333; }
+    .viewer-title { font-size: 18px; font-weight: 600; }
+    .code-container { padding: 15px; overflow: auto; }
+    .code-container pre { background-color: #f8f9fa; border-radius: 8px; padding: 15px; white-space: pre-wrap; word-wrap: break-word; font-family: 'SF Mono', 'Menlo', monospace; font-size: 14px; margin: 0; position: relative; }
+    .copy-icon-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 24px; cursor: pointer; color: #555; }
+    #publicLinkContainer { display: flex; margin-bottom: 15px; }
+    #publicLinkInput { flex-grow: 1; border-right: none; border-top-right-radius: 0; border-bottom-right-radius: 0; background: #eee; }
+    #copyLinkBtn { border-top-left-radius: 0; border-bottom-left-radius: 0; margin: 0; display: flex; align-items: center; }
+    .preview-container { flex-grow: 1; padding: 0; background-color: var(--light-color); }
+    #livePreviewFrame { width: 100%; height: 100%; border: none; }
+    .status-message { text-align: center; color: var(--grey-color); font-size: 18px; padding: 40px 20px; }
+    #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1001; }
+    .toast { display: flex; align-items: center; padding: 12px 20px; background-color: var(--dark-color); color: var(--light-color); border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); animation: slideIn 0.5s ease, fadeOut 0.5s ease 2.5s; }
+    .toast .material-icons-outlined { margin-right: 10px; }
+    .toast.error { background-color: var(--danger-color); }
+    @keyframes slideIn { from { transform: translateY(100px) translateX(-50%); opacity: 0; } to { transform: translateY(0) translateX(-50%); opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+  </style>
+</head>
+<body>
+
+<!-- Admin Panel UI is stored here and activated by JS -->
+<template id="admin-panel-template">
+    <header>
+        <h1><i class="material-icons-outlined">vpn_key</i> Key List App</h1>
+    </header>
+    <div class="container">
+        <div class="search-container">
+            <i class="material-icons-outlined">search</i>
+            <input type="text" id="searchInput" placeholder="कोई Key खोजें...">
+        </div>
+        <div id="keyListContainer"></div>
+        <div id="statusContainer">
+            <div class="status-message" id="loader">लोड हो रहा है...</div>
+            <div class="status-message" id="emptyState" style="display:none;">कोई Key नहीं मिली।<br>नई Key जोड़ने के लिए '+' पर क्लिक करें।</div>
+            <div class="status-message" id="noResults" style="display:none;">कोई परिणाम नहीं मिला।</div>
+        </div>
+    </div>
+    <button id="fab-add-key" onclick="openAddKeyModal()"><i class="material-icons-outlined">add</i></button>
+    <div id="toast-container"></div>
+    <!-- Modals -->
+    <div class="modal" id="addKeyModal">
+      <div class="modal-content">
+        <div class="modal-header"><i class="material-icons-outlined">add_circle_outline</i> नई Key जोड़ें</div>
+        <input type="text" id="addKeyNameInput" placeholder="Key का नाम यहाँ लिखें" onkeyup="if(event.key==='Enter') saveNewKey()">
+        <div class="modal-actions">
+            <button onclick="saveNewKey()"><i class="material-icons-outlined">save</i>Add Key</button>
+            <button class="cancel-btn" onclick="toggleModal('addKeyModal', false)"><i class="material-icons-outlined">close</i>Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal" id="editModal">
+      <div class="modal-content">
+        <div class="modal-header"><i class="material-icons-outlined">edit</i>Edit Key: <span id="modalKeyName"></span></div>
+        <input type="text" id="linkInput" placeholder="https://example.com" />
+        <input type="text" id="timeInput" placeholder="जैसे: 5 (सेकंड में)" />
+        <textarea id="generatedCode" rows="6" readonly></textarea>
+        <div class="modal-actions">
+            <button id="saveButton" onclick="saveToFirebase()"><i class="material-icons-outlined">save</i>Save Changes</button>
+            <button class="cancel-btn" onclick="toggleModal('editModal', false)"><i class="material-icons-outlined">close</i>Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div class="fullscreen-viewer" id="codeViewer">
+        <div class="viewer-header">
+            <button class="viewer-back-btn" onclick="toggleModal('codeViewer', false)"><i class="material-icons-outlined">arrow_back</i></button>
+            <div class="viewer-title">Details for: <span id="viewerKeyName"></span></div>
+        </div>
+        <div class="code-container">
+            <label>Public Link (Vercel):</label>
+            <div id="publicLinkContainer">
+                <input type="text" id="publicLinkInput" readonly>
+                <button id="copyLinkBtn" onclick="copyPublicLink()"><i class="material-icons-outlined">link</i>Copy</button>
+            </div>
+            <label>Live Preview Template Code:</label>
+            <pre><code id="codePreviewContent"></code><button class="copy-icon-btn" id="copyIconBtn" onclick="copyCode()"><i class="material-icons-outlined">content_copy</i></button></pre>
+        </div>
+    </div>
+    <div class="fullscreen-viewer" id="livePreviewViewer">
+        <div class="viewer-header">
+            <button class="viewer-back-btn" onclick="toggleModal('livePreviewViewer', false)"><i class="material-icons-outlined">arrow_back</i></button>
+            <div class="viewer-title">Live Preview: <span id="livePreviewTitle"></span></div>
+        </div>
+        <div class="preview-container">
+            <iframe id="livePreviewFrame"></iframe>
+        </div>
+    </div>
+</template>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDQmhMSrbRs3FbWZkAgs_XbTMsB_ADzy2k", authDomain: "tic-tac-toe-game-3668f.firebaseapp.com",
+    databaseURL: "https://tic-tac-toe-game-3668f-default-rtdb.firebaseio.com", projectId: "tic-tac-toe-game-3668f",
+    storageBucket: "tic-tac-toe-game-3668f.firebasestorage.app", messagingSenderId: "963811735838",
+    appId: "1:963811735838:android:37c7c2234f78e33a25310f"
+  };
+
+  let db, state;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      
+      const path = window.location.pathname;
+      // Router: Decide whether to show Admin Panel or Public View
+      if (path === '/' || path === '/index.html' || path === '') {
+        renderAdminUI();
+      } else {
+        renderPublicView(path.substring(1)); // remove leading '/'
+      }
+    } catch (e) {
+      document.body.innerHTML = `<div class="status-message">Error initializing app: ${e.message}</div>`;
+    }
+  });
+
+  // --- RENDER MODES ---
+  function renderAdminUI() {
+    const template = document.getElementById('admin-panel-template');
+    document.body.innerHTML = template.innerHTML;
+    initializeApp(db.ref("livePreview"));
+  }
+
+  function renderPublicView(keyName) {
+    document.body.innerHTML = `<div class="status-message">Loading content for '${keyName}'...</div>`;
+    db.ref(`livePreview/${keyName}`).once('value', snapshot => {
+        if (snapshot.exists() && snapshot.val().code) {
+            // Directly write the fetched HTML to the document
+            document.open();
+            document.write(snapshot.val().code);
+            document.close();
+        } else {
+            document.body.innerHTML = `<div class="status-message">Error: Key '${keyName}' not found.</div>`;
+        }
+    }).catch(e => {
+        document.body.innerHTML = `<div class="status-message">Error fetching data: ${e.message}</div>`;
+    });
+  }
+
+  // --- ADMIN PANEL LOGIC ---
+  function initializeApp(keysRef) {
+    state = { currentEditingKey: "" };
+    const DOM = {
+      keyListContainer: document.getElementById("keyListContainer"),
+      loader: document.getElementById("loader"),
+      emptyState: document.getElementById("emptyState"),
+      noResults: document.getElementById("noResults"),
+      searchInput: document.getElementById("searchInput"),
+    };
+    setupRealtimeListeners(keysRef, DOM);
+    DOM.searchInput.addEventListener('input', () => handleSearch(DOM));
+  }
+  
+  function setupRealtimeListeners(keysRef, DOM) {
+    const renderedKeys = new Set();
+    keysRef.once('value', snapshot => {
+        if(DOM.loader) DOM.loader.style.display = 'none';
+        if (!snapshot.exists() && DOM.emptyState) DOM.emptyState.style.display = 'block';
+    });
+    keysRef.on('child_added', snapshot => {
+      const key = snapshot.key;
+      if (!renderedKeys.has(key)) {
+        if(DOM.loader) DOM.loader.style.display = 'none';
+        if(DOM.emptyState) DOM.emptyState.style.display = 'none';
+        renderKey(key, DOM);
+        renderedKeys.add(key);
+        handleSearch(DOM);
+      }
+    });
+    keysRef.on('child_removed', snapshot => {
+      const key = snapshot.key;
+      if (renderedKeys.has(key)) {
+        document.getElementById(`key-box-${key}`)?.remove();
+        renderedKeys.delete(key);
+        if (renderedKeys.size === 0 && DOM.emptyState) DOM.emptyState.style.display = 'block';
+      }
+    });
+  }
+
+  window.saveNewKey = function() {
+    const newKey = document.getElementById('addKeyNameInput').value.trim();
+    if (!newKey) return showToast("Key का नाम खाली नहीं हो सकता।", "error");
+    if (document.getElementById(`key-box-${newKey}`)) return showToast("यह Key पहले से मौजूद है।", "error");
+    db.ref(`livePreview/${newKey}`).set({ code: "Placeholder. Please edit." })
+      .then(() => { showToast(`Key '${newKey}' सफलतापूर्वक जोड़ी गई!`, "success"); toggleModal('addKeyModal', false); })
+      .catch(e => showToast(`त्रुटि: ${e.message}`, "error"));
+  }
+  
+  window.deleteKey = function(keyName) {
+    if (confirm(`क्या आप वाकई Key '${keyName}' को हटाना चाहते हैं?`)) {
+        db.ref(`livePreview/${keyName}`).remove()
+            .then(() => showToast(`Key '${keyName}' हटा दी गई।`, "success"))
+            .catch(e => showToast(`त्रुटि: ${e.message}`, "error"));
+    }
+  }
+
+  window.saveToFirebase = function() {
+    const link = document.getElementById('linkInput').value.trim();
+    const time = document.getElementById('timeInput').value.trim();
+    if (!link || !time) return showToast("Link और Time दोनों जरूरी हैं।", "error");
+    const saveButton = document.getElementById('saveButton');
+    saveButton.disabled = true;
+    const html = htmlTemplate(time, link);
+    document.getElementById('generatedCode').value = html;
+    db.ref(`livePreview/${state.currentEditingKey}`).set({ code: html })
+      .then(() => { showToast("डेटा सफलतापूर्वक सेव हुआ!", "success"); toggleModal('editModal', false); })
+      .catch(e => showToast(`त्रुटि: ${e.message}`, "error"))
+      .finally(() => { saveButton.disabled = false; });
+  }
+
+  window.copyCode = function() {
+    copyToClipboard(document.getElementById('codePreviewContent').textContent, "Code copied to clipboard!");
+  }
+  
+  window.copyPublicLink = function() {
+    copyToClipboard(document.getElementById('publicLinkInput').value, "Public link copied!");
+  }
+
+  function copyToClipboard(text, successMessage) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text)
+          .then(() => showToast(successMessage, "success"))
+          .catch(() => showToast("Copy failed!", "error"));
+    } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "absolute"; textArea.style.left = "-9999px";
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showToast(successMessage, "success");
+        } catch (err) {
+            showToast("Copy failed!", "error");
+        } finally {
+            document.body.removeChild(textArea);
+        }
+    }
+  }
+
+  function renderKey(key, DOM) {
+    const div = document.createElement("div");
+    div.className = "key-box";
+    div.id = `key-box-${key}`;
+    div.innerHTML = `<span class="key-name">${key}</span><div class="key-actions"><button title="Live Preview" onclick="openLivePreviewModal('${key}')"><i class="material-icons-outlined">visibility</i></button><button title="View Details" onclick="openCodeViewer('${key}')"><i class="material-icons-outlined">info</i></button><button title="Edit" onclick="openEditModal('${key}')"><i class="material-icons-outlined">edit</i></button><button class="delete-btn" title="Delete" onclick="deleteKey('${key}')"><i class="material-icons-outlined">delete_outline</i></button></div>`;
+    DOM.keyListContainer.appendChild(div);
+  }
+  
+  window.toggleModal = (modalId, show) => { document.getElementById(modalId).style.display = show ? "flex" : "none"; };
+  window.openAddKeyModal = () => { document.getElementById('addKeyNameInput').value = ""; toggleModal('addKeyModal', true); document.getElementById('addKeyNameInput').focus(); }
+
+  window.openEditModal = function(keyName) {
+    state.currentEditingKey = keyName;
+    document.getElementById('modalKeyName').innerText = keyName;
+    db.ref(`livePreview/${keyName}`).once('value').then(snapshot => {
+        const data = snapshot.val();
+        document.getElementById('generatedCode').value = data?.code || "";
+        const timeMatch = data?.code.match(/content="(\d+);url=/);
+        const urlMatch = data?.code.match(/url=(.*?)"/);
+        document.getElementById('timeInput').value = timeMatch?.[1] || '';
+        document.getElementById('linkInput').value = urlMatch?.[1] || '';
+        toggleModal('editModal', true);
+    });
+  }
+
+  window.openCodeViewer = function(keyName) {
+    document.getElementById('viewerKeyName').textContent = keyName;
+    document.getElementById('publicLinkInput').value = `https://key-list.vercel.app/${keyName}`;
+    document.getElementById('codePreviewContent').textContent = generateLivePreviewTemplate(keyName);
+    toggleModal('codeViewer', true);
+  }
+
+  window.openLivePreviewModal = function(keyName) {
+    document.getElementById('livePreviewTitle').textContent = keyName;
+    document.getElementById('livePreviewFrame').srcdoc = generateLivePreviewTemplate(keyName);
+    toggleModal('livePreviewViewer', true);
+  };
+
+  function handleSearch(DOM) {
+    const searchTerm = DOM.searchInput.value.toLowerCase();
+    const keyBoxes = DOM.keyListContainer.getElementsByClassName('key-box');
+    let visibleCount = 0;
+    Array.from(keyBoxes).forEach(box => {
+        const isVisible = box.querySelector('.key-name').textContent.toLowerCase().includes(searchTerm);
+        box.style.display = isVisible ? 'flex' : 'none';
+        if (isVisible) visibleCount++;
+    });
+    if(DOM.noResults) DOM.noResults.style.display = (visibleCount === 0 && keyBoxes.length > 0) ? 'block' : 'none';
+  }
+
+  function showToast(message, type = 'success') {
+    const toastContainer = document.getElementById('toast-container');
+    if(!toastContainer) return;
+    const icon = type === 'success' ? 'check_circle' : 'error';
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<i class="material-icons-outlined">${icon}</i> ${message}`;
+    toastContainer.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function htmlTemplate(time, link) {
+    return `<!DOCTYPE html><html lang="hi"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="${time};url=${link}"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Redirecting...</title><style>body{font-family:sans-serif;text-align:center;padding-top:100px;background-color:#f9f9f9;}</style></head><body><h1>कृपया प्रतीक्षा करें...</h1></body></html>`;
+  }
+
+  function generateLivePreviewTemplate(keyName) {
+    return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>लाइव प्रीव्यू: ${keyName}</title><script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"><\/script><script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"><\/script><style>body,html{margin:0;padding:0;height:100%;overflow:hidden}iframe{width:100%;height:100%;border:0}p.status{padding:20px;text-align:center}<\/style></head><body><iframe id="liveViewerIframe"></iframe><script>try{firebase.initializeApp(${JSON.stringify(firebaseConfig)});const db=firebase.database(),key="${keyName}",iframe=document.getElementById("liveViewerIframe");iframe.srcdoc='<p class="status">डेटा लोड हो रहा है...<\/p>';db.ref("livePreview/"+key).on("value",s=>{let c;if(s.exists()){let d=s.val();c=d&&d.code?d.code:'<p class="status">कोई सामग्री नहीं मिली।<\/p>'}else{c='<p class="status">त्रुटि: Key \\''+key+'\\' नहीं मिली।<\/p>'}iframe.srcdoc=c},e=>{iframe.srcdoc='<p class="status" style="color:red">त्रुटि: '+e.message+"<\/p>"})}catch(e){document.body.innerHTML='<p class="status" style="color:red">त्रुटि: '+e.message+"<\/p>"}}<\/script></body></html>`;
+  }
+</script>
+
+</body>
+</html>
